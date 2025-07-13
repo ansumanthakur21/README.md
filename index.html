@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tic Tac Toe AI</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      height: 100vh;
+      background: linear-gradient(135deg, #a18cd1, #fbc2eb);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      text-align: center;
+      color: #fff;
+    }
+
+    h1 {
+      margin-bottom: 15px;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 10px;
+      justify-content: center;
+      margin: 20px auto;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .cell:hover {
+      background-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .status {
+      font-size: 1.2rem;
+      margin-top: 10px;
+      color: #fff;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 25px;
+      background: #ffffff;
+      color: #333;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background-color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tic Tac Toe (vs AI)</h1>
+    <div class="status" id="status">Your turn (X)</div>
+    <div class="board" id="board"></div>
+    <button onclick="resetGame()">Restart</button>
+  </div>
+
+  <!-- Sounds -->
+  <audio id="clickSound" src="https://cdn.pixabay.com/download/audio/2021/09/02/audio_f0b6c1e3f4.mp3" preload="auto"></audio>
+  <audio id="winSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_94cfb8e7c3.mp3" preload="auto"></audio>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const clickSound = document.getElementById('clickSound');
+    const winSound = document.getElementById('winSound');
+
+    let board = Array(9).fill('');
+    let human = 'X';
+    let ai = 'O';
+    let gameOver = false;
+
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      board.forEach((val, i) => {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.textContent = val;
+        if (!gameOver && val === '') {
+          cell.addEventListener('click', () => playerMove(i));
+        }
+        boardEl.appendChild(cell);
+      });
+    }
+
+    function playerMove(index) {
+      if (board[index] === '' && !gameOver) {
+        board[index] = human;
+        clickSound.play();
+        renderBoard();
+        if (checkWinner(human)) {
+          winSound.play();
+          statusEl.innerHTML = '🎉 You win! 🎉';
+          gameOver = true;
+          return;
+        }
+        if (isDraw()) {
+          statusEl.innerHTML = '😐 It\'s a draw!';
+          gameOver = true;
+          return;
+        }
+        statusEl.textContent = 'AI\'s turn (O)';
+        setTimeout(() => {
+          aiMove();
+          clickSound.play();
+          renderBoard();
+          if (checkWinner(ai)) {
+            winSound.play();
+            statusEl.innerHTML = '💻 AI wins! 🎉';
+            gameOver = true;
+            return;
+          }
+          if (isDraw()) {
+            statusEl.innerHTML = '😐 It\'s a draw!';
+            gameOver = true;
+            return;
+          }
+          statusEl.textContent = 'Your turn (X)';
+        }, 500);
+      }
+    }
+
+    function aiMove() {
+      const bestMove = minimax(board, ai).index;
+      board[bestMove] = ai;
+    }
+
+    function minimax(newBoard, player) {
+      const emptyIndexes = newBoard.map((val, idx) => val === '' ? idx : null).filter(v => v !== null);
+
+      if (checkWinnerFor(newBoard, human)) return { score: -10 };
+      if (checkWinnerFor(newBoard, ai)) return { score: 10 };
+      if (emptyIndexes.length === 0) return { score: 0 };
+
+      let moves = [];
+
+      for (let i = 0; i < emptyIndexes.length; i++) {
+        const index = emptyIndexes[i];
+        let move = {};
+        move.index = index;
+        newBoard[index] = player;
+
+        if (player === ai) {
+          const result = minimax(newBoard, human);
+          move.score = result.score;
+        } else {
+          const result = minimax(newBoard, ai);
+          move.score = result.score;
+        }
+
+        newBoard[index] = '';
+        moves.push(move);
+      }
+
+      let bestMove;
+      if (player === ai) {
+        let bestScore = -Infinity;
+        moves.forEach((move, i) => {
+          if (move.score > bestScore) {
+            bestScore = move.score;
+            bestMove = i;
+          }
+        });
+      } else {
+        let bestScore = Infinity;
+        moves.forEach((move, i) => {
+          if (move.score < bestScore) {
+            bestScore = move.score;
+            bestMove = i;
+          }
+        });
+      }
+
+      return moves[bestMove];
+    }
+
+    function checkWinner(player) {
+      return checkWinnerFor(board, player);
+    }
+
+    function checkWinnerFor(b, player) {
+      const winCombos = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+      ];
+
+      return winCombos.some(combo => 
+        combo.every(i => b[i] === player)
+      );
+    }
+
+    function isDraw() {
+      return board.every(cell => cell !== '');
+    }
+
+    function resetGame() {
+      board = Array(9).fill('');
+      gameOver = false;
+      statusEl.textContent = 'Your turn (X)';
+      renderBoard();
+    }
+
+    renderBoard();
+  </script>
+</body>
+</html>
